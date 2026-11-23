@@ -449,10 +449,19 @@
             "urgent",
             "immediatament",
             "ultima oportunitat",
+            "ultim avis",
             "sera bloquejat",
             "sera bloquejada",
+            "sera eliminat",
+            "sera eliminada",
             "en 24 hores",
+            "en 48 hores",
+            "avui mateix",
             "actua ara",
+            "paga ara",
+            "caduca",
+            "retingut",
+            "retinguda",
             "compte suspes",
             "compte suspesa"
         ];
@@ -460,18 +469,53 @@
         const dadesPersonals = [
             "contrasenya",
             "verifica el teu compte",
+            "verifiques el teu compte",
             "verificar el teu compte",
+            "confirma les teves dades",
+            "actualitza les teves dades",
+            "introdueix les teves dades",
+            "dades personals",
             "dades bancaries",
             "numero de targeta",
-            "introdueix les teves dades",
+            "codi de seguretat",
+            "pin",
+            "cvv",
+            "dni",
             "credencials"
+        ];
+
+        const pagaments = [
+            "paga",
+            "pagar",
+            "pagament",
+            "transferencia",
+            "taxa",
+            "despeses d'enviament"
+        ];
+
+        const premis = [
+            "has guanyat",
+            "has estat seleccionat",
+            "has estat seleccionada",
+            "guanyador",
+            "guanyadora",
+            "premi",
+            "sorteig",
+            "regal gratuit"
         ];
 
         const suplantacio = [
             "banc",
             "suport tecnic",
             "administrador",
-            "servei de seguretat"
+            "servei de seguretat",
+            "hisenda",
+            "seguretat social",
+            "paypal",
+            "amazon",
+            "netflix",
+            "microsoft",
+            "apple"
         ];
 
         const escurcadors = [
@@ -479,6 +523,25 @@
             "tinyurl.com",
             "t.co",
             "is.gd"
+        ];
+
+        const paraulesEnllacSospitos = [
+            "login",
+            "verifica",
+            "actualitza",
+            "seguretat",
+            "pagament",
+            "compte"
+        ];
+
+        // Frases que tranquil·litzen (ex: "mai et demanarem la contrasenya")
+        const frasesSeguretat = [
+            "mai et demanarem",
+            "mai us demanarem",
+            "no et demanarem",
+            "no us demanarem",
+            "no comparteixis",
+            "no compartiu"
         ];
 
         // Normalitzar el text
@@ -489,40 +552,80 @@
                 .replace(/\p{Mn}/gu, "");
         }
 
+        const escapar = (paraula) => paraula.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+        // Buscar paraules completes (així "banc" no troba "bancaries")
+        function conte(text, llista) {
+            return llista.some((paraula) => new RegExp("\\b" + escapar(paraula) + "\\b").test(text));
+        }
+
+        // Treure les frases que avisen de NO donar dades
+        function treureFrasesSeguretat(text) {
+            return text
+                .split(/[.!?\n]+/)
+                .filter((frase) => !frasesSeguretat.some((avis) => frase.includes(avis)))
+                .join(". ");
+        }
+
         // Analitzar el correu electronic
         function analitzarCorreu(correu) {
             const text = normalitzar(correu);
-            const conte = (llista) => llista.some((paraula) => text.includes(paraula));
 
             let puntuacio = 0;
             const alertes = [];
 
             // Detectar missatges d'urgencia
-            if (conte(urgencia)) {
+            if (conte(text, urgencia)) {
                 puntuacio += 20;
                 alertes.push("Conté missatges d'urgència");
             }
 
             // Detectar sol·licituds de dades personals
-            if (conte(dadesPersonals)) {
+            if (conte(treureFrasesSeguretat(text), dadesPersonals)) {
                 puntuacio += 30;
                 alertes.push("Sol·licita informació personal");
             }
 
+            // Detectar peticions de pagament
+            if (conte(text, pagaments) || /\d+([.,]\d+)?\s?(€|euros?)/.test(text)) {
+                puntuacio += 20;
+                alertes.push("Demana un pagament o diners");
+            }
+
+            // Detectar premis o regals falsos
+            if (conte(text, premis)) {
+                puntuacio += 20;
+                alertes.push("Promet un premi o regal");
+            }
+
             // Detectar enllaços
-            if (/https?:\/\/\S+/.test(text)) {
+            const enllacos = text.match(/https?:\/\/\S+/g) || [];
+
+            if (enllacos.length) {
                 puntuacio += 15;
                 alertes.push("Conté un o més enllaços");
             }
 
+            // Detectar enllaços sense connexió segura
+            if (enllacos.some((enllac) => enllac.startsWith("http://"))) {
+                puntuacio += 10;
+                alertes.push("Conté un enllaç sense connexió segura (http)");
+            }
+
+            // Detectar enllaços amb paraules sospitoses
+            if (enllacos.some((enllac) => paraulesEnllacSospitos.some((paraula) => enllac.includes(paraula)))) {
+                puntuacio += 15;
+                alertes.push("Conté un enllaç amb paraules sospitoses");
+            }
+
             // Detectar escurçadors d'enllaços
-            if (conte(escurcadors)) {
+            if (escurcadors.some((domini) => new RegExp("(?<![\\w.-])" + escapar(domini) + "\\b").test(text))) {
                 puntuacio += 25;
                 alertes.push("Conté un enllaç escurçat");
             }
 
             // Detectar possibles suplantacions
-            if (conte(suplantacio)) {
+            if (conte(text, suplantacio)) {
                 puntuacio += 10;
                 alertes.push("Esmenta una entitat o servei");
             }
