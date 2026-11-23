@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detector de Phishing</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            color: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px 16px;
+        }
+
+        .contenidor {
+            width: 100%;
+            max-width: 720px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            text-align: center;
+            font-size: 2rem;
+            letter-spacing: 1px;
+        }
+
+        .subtitol {
+            text-align: center;
+            color: #94a3b8;
+            margin: 0 0 24px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 180px;
+            padding: 14px;
+            border-radius: 10px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-size: 1rem;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #38bdf8;
+        }
+
+        .botons {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.85;
+        }
+
+        #analitzar {
+            background: #38bdf8;
+            color: #0f172a;
+        }
+
+        #netejar {
+            background: #475569;
+            color: #e2e8f0;
+        }
+
+        #resultat {
+            display: none;
+            margin-top: 28px;
+            padding: 24px;
+            border-radius: 12px;
+            background: #0f172a;
+            border: 1px solid #334155;
+        }
+
+        #resultat h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+        }
+
+        .barra {
+            height: 14px;
+            background: #334155;
+            border-radius: 7px;
+            overflow: hidden;
+            margin: 12px 0;
+        }
+
+        .barra-plena {
+            height: 100%;
+            width: 0;
+            transition: width 0.5s ease;
+        }
+
+        .classificacio {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 700;
+        }
+
+        .alt {
+            background: #ef4444;
+            color: white;
+        }
+
+        .mitja {
+            background: #f59e0b;
+            color: #0f172a;
+        }
+
+        .baix {
+            background: #22c55e;
+            color: #0f172a;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 6px;
+        }
+
+        .avis {
+            margin-top: 20px;
+            padding: 12px;
+            border-left: 4px solid #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+            color: #fcd34d;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+    <main class="contenidor">
+        <h1>DETECTOR DE PHISHING</h1>
+        <p class="subtitol">Analitza un correu electrònic fictici i descobreix el seu nivell de risc</p>
+
+        <label for="correu">Introdueix el correu fictici:</label>
+        <textarea id="correu" placeholder="Enganxa aquí el text del correu..."></textarea>
+
+        <div class="botons">
+            <button id="analitzar">Analitzar</button>
+            <button id="netejar">Netejar</button>
+        </div>
+
+        <section id="resultat">
+            <h2>RESULTAT</h2>
+            <p>Puntuació de risc: <strong id="puntuacio">0</strong> /100</p>
+            <div class="barra"><div class="barra-plena" id="barra"></div></div>
+            <p>Classificació: <span class="classificacio" id="classificacio"></span></p>
+
+            <h3>Indicadors detectats:</h3>
+            <ul id="alertes"></ul>
+
+            <div class="avis">
+                ATENCIÓ: un resultat de risc baix no garanteix que el correu sigui segur.
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Paraules i expressions sospitoses
+        const urgencia = [
+            "urgent",
+            "immediatament",
+            "ultima oportunitat",
+            "sera bloquejat",
+            "sera bloquejada",
+            "en 24 hores",
+            "actua ara",
+            "compte suspes",
+            "compte suspesa"
+        ];
+
+        const dadesPersonals = [
+            "contrasenya",
+            "verifica el teu compte",
+            "verificar el teu compte",
+            "dades bancaries",
+            "numero de targeta",
+            "introdueix les teves dades",
+            "credencials"
+        ];
+
+        const suplantacio = [
+            "banc",
+            "suport tecnic",
+            "administrador",
+            "servei de seguretat"
+        ];
+
+        const escurcadors = [
+            "bit.ly",
+            "tinyurl.com",
+            "t.co",
+            "is.gd"
+        ];
+
+        // Normalitzar el text
+        function normalitzar(text) {
+            return text
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/\p{Mn}/gu, "");
+        }
+
+        // Analitzar el correu electronic
+        function analitzarCorreu(correu) {
+            const text = normalitzar(correu);
+            const conte = (llista) => llista.some((paraula) => text.includes(paraula));
+
+            let puntuacio = 0;
+            const alertes = [];
+
+            // Detectar missatges d'urgencia
+            if (conte(urgencia)) {
+                puntuacio += 20;
+                alertes.push("Conté missatges d'urgència");
+            }
+
+            // Detectar sol·licituds de dades personals
+            if (conte(dadesPersonals)) {
+                puntuacio += 30;
+                alertes.push("Sol·licita informació personal");
+            }
+
+            // Detectar enllaços
+            if (/https?:\/\/\S+/.test(text)) {
+                puntuacio += 15;
+                alertes.push("Conté un o més enllaços");
+            }
+
+            // Detectar escurçadors d'enllaços
+            if (conte(escurcadors)) {
+                puntuacio += 25;
+                alertes.push("Conté un enllaç escurçat");
+            }
+
+            // Detectar possibles suplantacions
+            if (conte(suplantacio)) {
+                puntuacio += 10;
+                alertes.push("Esmenta una entitat o servei");
+            }
+
+            // Limitar la puntuació a 100
+            puntuacio = Math.min(puntuacio, 100);
+
+            // Classificar el nivell de risc
+            let resultat;
+            if (puntuacio >= 60) {
+                resultat = "RISC ALT";
+            } else if (puntuacio >= 30) {
+                resultat = "RISC MITJÀ";
+            } else {
+                resultat = "RISC BAIX";
+            }
+
+            return { puntuacio, resultat, alertes };
+        }
+
+        // Mostrar el resultat a la pàgina
+        const colors = {
+            "RISC ALT": { classe: "alt", color: "#ef4444" },
+            "RISC MITJÀ": { classe: "mitja", color: "#f59e0b" },
+            "RISC BAIX": { classe: "baix", color: "#22c55e" }
+        };
+
+        document.getElementById("analitzar").addEventListener("click", () => {
+            const correu = document.getElementById("correu").value;
+
+            if (!correu.trim()) {
+                alert("Introdueix el text d'un correu per analitzar-lo.");
+                return;
+            }
+
+            const { puntuacio, resultat, alertes } = analitzarCorreu(correu);
+            const estil = colors[resultat];
+
+            document.getElementById("puntuacio").textContent = puntuacio;
+
+            const barra = document.getElementById("barra");
+            barra.style.width = puntuacio + "%";
+            barra.style.background = estil.color;
+
+            const classificacio = document.getElementById("classificacio");
+            classificacio.textContent = resultat;
+            classificacio.className = "classificacio " + estil.classe;
+
+            const llista = document.getElementById("alertes");
+            llista.innerHTML = "";
+
+            if (alertes.length) {
+                alertes.forEach((alerta) => {
+                    const element = document.createElement("li");
+                    element.textContent = alerta;
+                    llista.appendChild(element);
+                });
+            } else {
+                const element = document.createElement("li");
+                element.textContent = "No s'han trobat indicadors sospitosos.";
+                llista.appendChild(element);
+            }
+
+            document.getElementById("resultat").style.display = "block";
+        });
+
+        document.getElementById("netejar").addEventListener("click", () => {
+            document.getElementById("correu").value = "";
+            document.getElementById("resultat").style.display = "none";
+        });
+    </script>
+</body>
+</html>
